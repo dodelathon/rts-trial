@@ -4,18 +4,18 @@ using UnityEngine;
 
 public class FollowUnit : MonoBehaviour
 {
-    public Transform t;
-	
+    public Transform target;
+    public float smoothSpeed = 5.0f;
+    public Vector3 offset;
 
-	void Start ()
+    // Update is called once per frame
+    void FixedUpdate()
     {
-		
 
-	}
-	
-	// Update is called once per frame
-	void Update ()
-    {
-		
-	}
+
+        transform.position = target.position;
+
+        
+
+    }
 }
