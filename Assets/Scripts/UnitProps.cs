@@ -10,17 +10,19 @@ public class UnitProps : MonoBehaviour
     private int Health;
     public int damage;
     public int range;
-
+    
     private Vector3 mPos;
     private Vector3 direction;
     public float movespeed;
 
+    bool allowfire;
     private Rigidbody Me;
     private SphereCollider rangeCollider;
 
     [Header("Unit Elements")]
     public Image HealthBar;
-    public Transform thisUnit; 
+    public Transform thisUnit;
+    public Transform Projectile;
 
     void Start()
     {
@@ -76,10 +78,14 @@ public class UnitProps : MonoBehaviour
 
     private void OnTriggerEnter(Collider other)
     {
-        
-        {
-            Debug.Log("Fire");
-        }
+        Fire(other.attachedRigidbody.position);
+    }
+
+    void Fire(Vector3 pos)
+    {
+
+        Transform tempBullet = Instantiate(Projectile, transform.position, transform.rotation);
+        tempBullet.GetComponent<Rigidbody>().AddForce(pos);
     }
 
 }
