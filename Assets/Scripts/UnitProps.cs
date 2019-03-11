@@ -10,12 +10,16 @@ public class UnitProps : MonoBehaviour
     private int Health;
     public int damage;
     public int range;
+    public int bulletSpeed;
     
     private Vector3 mPos;
     private Vector3 direction;
+    private Transform Target;
     public float movespeed;
+    public float turnSpeed;
 
-    bool allowfire;
+    bool allowfire = true;
+    bool TargetAquired = false;
     private Rigidbody Me;
     private SphereCollider rangeCollider;
 
@@ -23,6 +27,7 @@ public class UnitProps : MonoBehaviour
     public Image HealthBar;
     public Transform thisUnit;
     public Transform Projectile;
+    public Transform FirePoint;
 
     void Start()
     {
@@ -35,6 +40,7 @@ public class UnitProps : MonoBehaviour
     void Update()
     {
         CheckIfMoving();
+        faceTarget();
     }
 
     void Damaged()
@@ -47,7 +53,7 @@ public class UnitProps : MonoBehaviour
     {
 
         direction = (mPos - transform.position).normalized;
-        Me.velocity = new Vector3(direction.x * movespeed, direction.y * movespeed, 0);
+        Me.velocity = new Vector3(direction.x * movespeed, 0, direction.z * movespeed);
     }
 
     void OnCollisionEnter(Collision col)
@@ -55,8 +61,16 @@ public class UnitProps : MonoBehaviour
         if (col.gameObject.name == "Sphere")
         {
             Damaged();
+            ChangePos(col.transform.position);
         }
     }
+
+    private void OnCollisionExit(Collision collision)
+    {
+        Zero();
+    }
+
+
 
     void Zero()
     {
@@ -70,23 +84,78 @@ public class UnitProps : MonoBehaviour
             mPos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
             ChangePos();
         }
-        else if (Me.position.x <= mPos.x + 0.75 && Me.position.x >= mPos.x - 0.75 && Me.position.y <= mPos.y + 0.75 && Me.position.y >= mPos.y - 0.75)
+        else if (Me.position.x <= mPos.x + 0.25 && Me.position.x >= mPos.x - 0.25 && Me.position.z <= mPos.z + 0.25 && Me.position.z >= mPos.z - 0.25)
         {
             Zero();
         }
     }
 
+    void ChangePos(Vector3 other)
+    {
+        direction = (other - transform.position).normalized;
+        Me.velocity = new Vector3(-direction.x * 0.1f, 0, -direction.z * 0.1f);
+    }
+
     private void OnTriggerEnter(Collider other)
     {
-        Fire(other.attachedRigidbody.position);
+        if (TargetAquired == false)
+        {
+            TargetAquired = true;
+            Target = other.transform;
+        }
+    }
+
+    private void OnTriggerExit(Collider other)
+    {
+        TargetAquired = false;
+    }
+
+    private void OnTriggerStay(Collider other)
+    {
+        Target = other.transform;
     }
 
     void Fire(Vector3 pos)
     {
 
-        Transform tempBullet = Instantiate(Projectile, transform.position, transform.rotation);
-        tempBullet.GetComponent<Rigidbody>().AddForce(pos);
+        Vector3 FPPos = FirePoint.position;
+        Transform tempBullet = Instantiate(Projectile, FPPos,  FirePoint.rotation);
+        tempBullet.GetComponent<Rigidbody>().AddForce((pos.x - transform.position.x) * bulletSpeed, (pos.y - transform.position.y) * bulletSpeed, (pos.z - transform.position.z) * bulletSpeed);
     }
+
+    void faceTarget()
+    {
+        if (TargetAquired == true)
+        {
+            direction = Target.position - Me.position;
+            direction.Normalize();
+            transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(direction), turnSpeed * Time.deltaTime);
+
+            int layerMask = ((1 << LayerMask.NameToLayer("units")) | (1 << LayerMask.NameToLayer("Buildings")));
+    
+            RaycastHit hit;
+
+
+            if (Physics.Raycast(FirePoint.position, direction, out hit, rangeCollider.radius/10, layerMask))
+            {
+                Debug.Log(hit.rigidbody.name);
+                Fire(Target.position);
+            }
+
+
+
+        }
+        else
+        {
+            direction = new Vector3(0,0,0);
+            direction.Normalize();
+            transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(direction), (turnSpeed) * Time.deltaTime);
+        }
+    }
+
+   
+
+
 
 }
 
