@@ -138,7 +138,6 @@ public class UnitProps : MonoBehaviour
 
             if (Physics.Raycast(FirePoint.position, direction, out hit, rangeCollider.radius/10, layerMask))
             {
-                Debug.Log(hit.rigidbody.name);
                 Fire(Target.position);
             }
 
