@@ -11,12 +11,15 @@ public class UnitProps : MonoBehaviour
     public int damage;
     public int range;
     public int bulletSpeed;
+    public float fireRate;
+    private float fireTimer = 0.0f;
     
     private Vector3 mPos;
     private Vector3 direction;
     private Transform Target;
     public float movespeed;
     public float turnSpeed;
+    private short shiftbit = 0;
 
     bool allowfire = true;
     bool TargetAquired = false;
@@ -25,7 +28,6 @@ public class UnitProps : MonoBehaviour
 
     [Header("Unit Elements")]
     public Image HealthBar;
-    public Transform thisUnit;
     public Transform Projectile;
     public Transform FirePoint;
 
@@ -33,14 +35,15 @@ public class UnitProps : MonoBehaviour
     {
         Health = StartHealth;
         Me = GetComponent<Rigidbody>();
-        rangeCollider = thisUnit.GetChild(1).GetComponent<SphereCollider>();
+        rangeCollider = transform.GetChild(2).GetComponent<SphereCollider>();
         rangeCollider.radius = range;
     }
 
-    void Update()
+    void FixedUpdate()
     {
+        fireTimer -= Time.deltaTime;
         CheckIfMoving();
-        faceTarget();
+        FaceTarget();
     }
 
     void Damaged()
@@ -56,21 +59,48 @@ public class UnitProps : MonoBehaviour
         Me.velocity = new Vector3(direction.x * movespeed, 0, direction.z * movespeed);
     }
 
+    /*void CalcShorterRoute(Collision col)
+    {
+        if(mPos.z > col.transform.position.z)
+        {
+            if(mPos.x > col.transform.position.x)
+            {
+                float right = Mathf.Sqrt(Mathf.Pow(mPos.x - (transform.position.x + col.gameObject.GetComponent<SphereCollider>().radius), 2) + Mathf.Pow(mPos.z - transform.position.z, 2));
+                float left = Mathf.Sqrt(Mathf.Pow(mPos.x - transform.position.x, 2) + Mathf.Pow(mPos.z - (transform.position.z + col.gameObject.GetComponent<SphereCollider>().radius), 2));
+                Debug.Log("Left: " + left + " Right: " + right);
+                if(left >= right)
+                {
+                    Me.velocity = new Vector3(-mPos.x * movespeed, 0, mPos.z * movespeed);
+                    Me.velocity = new Vector3(mPos.x * movespeed, 0, mPos.z * movespeed);
+                }
+                else
+                {
+                   
+                    Me.velocity = new Vector3(-mPos.x * movespeed, 0, -mPos.z * movespeed);
+                    Me.velocity = new Vector3(mPos.x * movespeed, 0, mPos.z * movespeed);
+                }
+            }
+        }
+    }*/
+
     void OnCollisionEnter(Collision col)
     {
         if (col.gameObject.name == "Sphere")
         {
+            
+            /*if (shiftbit == 0)
+            {
+                shiftbit = 1;
+                CalcShorterRoute(col);
+            }*/
             Damaged();
-            ChangePos(col.transform.position);
         }
     }
 
-    private void OnCollisionExit(Collision collision)
+    private void OnCollisionExit(Collision col)
     {
-        Zero();
+        ChangePos();
     }
-
-
 
     void Zero()
     {
@@ -86,14 +116,9 @@ public class UnitProps : MonoBehaviour
         }
         else if (Me.position.x <= mPos.x + 0.25 && Me.position.x >= mPos.x - 0.25 && Me.position.z <= mPos.z + 0.25 && Me.position.z >= mPos.z - 0.25)
         {
+            shiftbit = 0;
             Zero();
         }
-    }
-
-    void ChangePos(Vector3 other)
-    {
-        direction = (other - transform.position).normalized;
-        Me.velocity = new Vector3(-direction.x * 0.1f, 0, -direction.z * 0.1f);
     }
 
     private void OnTriggerEnter(Collider other)
@@ -101,17 +126,20 @@ public class UnitProps : MonoBehaviour
         if (TargetAquired == false)
         {
             TargetAquired = true;
-            Target = other.transform;
+            Target = other.GetComponentInParent<Transform>();
         }
     }
 
     private void OnTriggerExit(Collider other)
     {
+        Debug.Log("Here");
         TargetAquired = false;
     }
 
     private void OnTriggerStay(Collider other)
     {
+        Debug.Log(other.name);
+        TargetAquired = true;
         Target = other.transform;
     }
 
@@ -120,41 +148,53 @@ public class UnitProps : MonoBehaviour
 
         Vector3 FPPos = FirePoint.position;
         Transform tempBullet = Instantiate(Projectile, FPPos,  FirePoint.rotation);
-        tempBullet.GetComponent<Rigidbody>().AddForce((pos.x - transform.position.x) * bulletSpeed, (pos.y - transform.position.y) * bulletSpeed, (pos.z - transform.position.z) * bulletSpeed);
+        tempBullet.GetComponent<Rigidbody>().AddForce((pos.x - transform.position.x) * bulletSpeed, (pos.y - (transform.position.y + 0.20f)) * bulletSpeed, (pos.z - transform.position.z) * bulletSpeed);
     }
 
-    void faceTarget()
+    private void FaceTarget()
     {
+        Vector3 mDirect = (mPos - transform.position).normalized;
+        mDirect.y = 0;
+
         if (TargetAquired == true)
         {
             direction = Target.position - Me.position;
             direction.Normalize();
-            transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(direction), turnSpeed * Time.deltaTime);
+            Vector3 tempDirect = direction;
+            tempDirect.y -= 0.10f;
+            direction.y = 0;
+           
+            transform.GetChild(0).rotation = Quaternion.Slerp(transform.GetChild(0).rotation, Quaternion.LookRotation(direction), turnSpeed * Time.deltaTime);
+            transform.GetChild(0).GetChild(1).rotation = Quaternion.Slerp(transform.GetChild(0).GetChild(1).rotation, Quaternion.LookRotation(tempDirect), (turnSpeed) * Time.deltaTime);
+
+
+            transform.GetChild(1).rotation = Quaternion.Slerp(transform.GetChild(1).rotation, Quaternion.LookRotation(mDirect), turnSpeed * Time.deltaTime);
+
 
             int layerMask = ((1 << LayerMask.NameToLayer("units")) | (1 << LayerMask.NameToLayer("Buildings")));
-    
             RaycastHit hit;
-
-
-            if (Physics.Raycast(FirePoint.position, direction, out hit, rangeCollider.radius/10, layerMask))
+            Debug.DrawRay(FirePoint.position,  tempDirect, Color.red);
+            if (Physics.Raycast(FirePoint.position, tempDirect, out hit, rangeCollider.radius/20, layerMask))
             {
-                Fire(Target.position);
+                if (fireTimer < 0.0f)
+                {
+                   
+                    fireTimer = fireRate;
+                    Fire(Target.position);
+                }
             }
-
-
-
         }
         else
         {
             direction = new Vector3(0,0,0);
             direction.Normalize();
-            transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(direction), (turnSpeed) * Time.deltaTime);
+            transform.GetChild(0).rotation = Quaternion.Slerp(transform.GetChild(0).rotation, Quaternion.LookRotation(direction), (turnSpeed) * Time.deltaTime);
+            transform.GetChild(0).GetChild(1).rotation = Quaternion.Slerp(transform.GetChild(0).GetChild(1).rotation, Quaternion.LookRotation(direction), turnSpeed * Time.deltaTime);
+
+
+            transform.GetChild(1).rotation = Quaternion.Slerp(transform.GetChild(1).rotation, Quaternion.LookRotation(mDirect), turnSpeed * Time.deltaTime);
         }
     }
-
-   
-
-
 
 }
 
