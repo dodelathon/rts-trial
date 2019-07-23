@@ -3,40 +3,27 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
-public class UnitProps : MonoBehaviour
+public class UnitProps : Unit
 {
-    [Header("Unit Stats")]
-    public int StartHealth;
-    private int Health;
-    public int damage;
-    public int range;
-    public int bulletSpeed;
-    public float fireRate;
-    private float fireTimer = 0.0f;
     
     private Vector3 mPos;
     private Vector3 direction;
-    private Transform Target;
-    public float movespeed;
-    public float turnSpeed;
-    private short shiftbit = 0;
-
-    bool allowfire = true;
-    bool TargetAquired = false;
-    private Rigidbody Me;
-    private SphereCollider rangeCollider;
-
-    [Header("Unit Elements")]
-    public Image HealthBar;
-    public Transform Projectile;
-    public Transform FirePoint;
+   
+    private Transform FirePoint;
 
     void Start()
     {
+        damage = 0;
+        movespeed = 7;
+        turnSpeed = 5;
+        fireRate = 0.5f;
+        bulletSpeed = 100;
+        range = 30;
         Health = StartHealth;
         Me = GetComponent<Rigidbody>();
         rangeCollider = transform.GetChild(2).GetComponent<SphereCollider>();
         rangeCollider.radius = range;
+        FirePoint = transform.GetChild(0).GetChild(1).GetChild(0).GetChild(0).transform;
     }
 
     void FixedUpdate()
@@ -116,31 +103,43 @@ public class UnitProps : MonoBehaviour
         }
         else if (Me.position.x <= mPos.x + 0.25 && Me.position.x >= mPos.x - 0.25 && Me.position.z <= mPos.z + 0.25 && Me.position.z >= mPos.z - 0.25)
         {
-            shiftbit = 0;
             Zero();
         }
     }
 
     private void OnTriggerEnter(Collider other)
     {
+        Counter++;
         if (TargetAquired == false)
         {
-            TargetAquired = true;
-            Target = other.GetComponentInParent<Transform>();
+            System.Object[] Holder = { teamNum, gameObject , 0};
+            other.SendMessage("IsAlly", Holder);
+            if (enemy == true)
+            {
+
+                TargetAquired = true;
+                Target = other.GetComponentInParent<Transform>();
+                TID = other.name;
+            }
         }
     }
 
     private void OnTriggerExit(Collider other)
     {
-        Debug.Log("Here");
-        TargetAquired = false;
+        Counter--;
+        if(Counter == 0)
+        {
+            TargetAquired = false;
+        }
     }
 
     private void OnTriggerStay(Collider other)
     {
-        Debug.Log(other.name);
-        TargetAquired = true;
-        Target = other.transform;
+        if (enemy == true && other.name.Equals(TID))
+        {
+            TargetAquired = true;
+            Target = other.transform;
+        }
     }
 
     void Fire(Vector3 pos)
@@ -194,6 +193,25 @@ public class UnitProps : MonoBehaviour
 
             transform.GetChild(1).rotation = Quaternion.Slerp(transform.GetChild(1).rotation, Quaternion.LookRotation(mDirect), turnSpeed * Time.deltaTime);
         }
+    }
+
+    private void IsAlly(System.Object[] Temp)
+    {
+        if((int)Temp[0] != teamNum)
+        {
+            enemy = true;
+        }
+        if ((int)Temp[2] == 0)
+        {
+            GameObject other = (GameObject)Temp[1];
+            System.Object[] sender = { teamNum, gameObject, 1 };
+            other.SendMessage("IsAlly", sender);
+        }
+    }
+
+    private void GetID()
+    {
+        gameObject.BroadcastMessage("GatherUnits", gameObject);
     }
 
 }
